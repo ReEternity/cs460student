@@ -60,6 +60,12 @@
     var c, gl;
     var v_shader, f_shader, shaderprogram;
     var vertices, indices, v_buffer, i_buffer;
+    var mainFish;
+    window.onkeypress = function(e){
+      if (e.key == ' '){
+        //something
+      }
+    }
 
     window.onload = function() {
 
@@ -111,14 +117,15 @@
       // create multiple all_fish
       all_fish = [];
       all_fish.push( createFish(new Float32Array([1,0,0,1]), new Float32Array([0, 0, 0]), 1, -1));
+      mainFish = all_fish[0];
       // all_fish.push( createFish( new Float32Array([-.2,-.2,0]), new Float32Array([1.,1.,1.,1.]), 1,1));
       var fishe = Math.floor(Math.random()*100);
-      // for (var i = 0; i < fishe; i++){
-      //   random_color = [Math.random(),Math.random(),Math.random(),Math.random()];
-      //   random_offset = [Math.random()-Math.random(), Math.random()-Math.random(), 0];
-      //   random_scale = Math.random()*0.3;
-      //   all_fish.push( createFish(random_color, random_offset, random_scale, 1) );
-      // }
+      for (var i = 0; i < fishe; i++){
+        random_color = [Math.random(),Math.random(),Math.random(),Math.random()];
+        random_offset = [Math.random()-Math.random(), Math.random()-Math.random(), 0];
+        random_scale = Math.random()*0.3;
+        all_fish.push( createFish(random_color, random_offset, random_scale, 1) );
+      }
 
       animate();
 
@@ -203,6 +210,7 @@
         var current_scale = current_buffers[5];
         var current_direction = current_buffers[6];
 
+        if (r!=0){
         current_offset[0] += 0.01;
         current_offset[1] += 0.1*Math.random();
         current_offset[1] -= 0.1*Math.random();
@@ -210,7 +218,7 @@
           current_direction = -1;
         }
         current_offset[0] *= current_direction;
-        
+        }
 
 
 
@@ -250,13 +258,16 @@
         var u_offset = gl.getUniformLocation( shaderprogram, 'u_transform' );
         gl.uniformMatrix4fv( u_transform, false, new Float32Array(transform));
 
-
-      theta = Math.random()*10 * Math.PI/180; // convert 0..10 degrees to radians
+      if (r!=0){
+        theta = Math.random()*10 * Math.PI/180; // convert 0..10 degrees to radians
+      }else{
+        theta = 0;
+      }
       transform = [current_direction*current_scale*Math.cos(theta), Math.sin(theta), 0, 0,
                   -Math.sin(theta), current_direction*current_scale*Math.cos(theta), 0, 0,
                   0, 0, current_direction*current_scale*1, 0,
                   current_offset[0], current_offset[1], current_offset[2], 1];
-
+        
 
         gl.uniformMatrix4fv( u_transform, false, new Float32Array(transform));
 
@@ -270,7 +281,7 @@
         ]);
         if (r == 0) {
         // the large fish aka. first object should still be red!
-        current_color = [1,0,0,.7];
+        current_color = [1,0,0,1];
         }
         gl.uniform4fv( u_color, current_color );
 
@@ -290,7 +301,7 @@
         u_pointsize = gl.getUniformLocation( shaderprogram, 'u_pointsize' );
         gl.uniform1fv( u_pointsize, new Float32Array([current_scale*20.]));
         gl.enableVertexAttribArray ( a_position );
-        gl.bindBuffer( gl.ARRAY_BUFFER, eye_v_buffer );
+        gl.bindBuffer( gl.ARRAY_BUFFER, current_eye_v_buffer );
         gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(a_position);
 
