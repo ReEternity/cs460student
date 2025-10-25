@@ -60,10 +60,17 @@
     var c, gl;
     var v_shader, f_shader, shaderprogram;
     var vertices, indices, v_buffer, i_buffer;
-    var mainFish;
-    window.onkeypress = function(e){
+    let jumped = false;
+    let velocityY = 0;
+    let gravity = -0.0001;
+    let jumpStrength = 0.008;
+    let maxFallSpeed = -0.05;
+    var deadfish = 0;
+    let mainFishColor = [1,0,0,1];//starts off red
+    window.onkeypress = function(e){ //press space to jump
       if (e.key == ' '){
-        //something
+        jumped = true;
+        velocityY = jumpStrength;
       }
     }
 
@@ -116,11 +123,9 @@
 
       // create multiple all_fish
       all_fish = [];
-      all_fish.push( createFish(new Float32Array([1,0,0,1]), new Float32Array([0, 0, 0]), 1, -1));
+      all_fish.push( createFish(new Float32Array([1,0,0,1]), new Float32Array([0, 0, 0]), 0.1, -1));
       mainFish = all_fish[0];
-      // all_fish.push( createFish( new Float32Array([-.2,-.2,0]), new Float32Array([1.,1.,1.,1.]), 1,1));
-      var fishe = Math.floor(Math.random()*100);
-      for (var i = 0; i < fishe; i++){
+      for (var i = 0; i < 100; i++){
         random_color = [Math.random(),Math.random(),Math.random(),Math.random()];
         random_offset = [Math.random()-Math.random(), Math.random()-Math.random(), 0];
         random_scale = Math.random()*0.3;
@@ -209,15 +214,69 @@
         var current_offset = current_buffers[4];
         var current_scale = current_buffers[5];
         var current_direction = current_buffers[6];
-
+        
         if (r!=0){
-        current_offset[0] += 0.01;
-        current_offset[1] += 0.1*Math.random();
-        current_offset[1] -= 0.1*Math.random();
-        if (current_offset[0] >= 1) {
-          current_direction = -1;
-        }
-        current_offset[0] *= current_direction;
+          current_offset[0] += 0.01;
+          current_offset[1] += 0.1*Math.random();
+          current_offset[1] -= 0.1*Math.random();
+          if (current_offset[0] >= 1) {
+            current_direction = -1;
+          }
+          current_offset[0] *= current_direction;
+        }else{
+          if (jumped) {
+            current_offset[1] += velocityY;
+            velocityY += gravity;
+            if (velocityY < maxFallSpeed){
+              velocityY = maxFallSpeed;
+            }
+            if (current_offset[1] <= -0.9){
+              current_offset[1] = -0.9;
+              velocityY = 0;
+            }
+            if (current_offset[1] >= 0.9){
+              current_offset[1] = 0.9;
+              velocityY = 0;
+            }
+          }
+
+          // === Collision detection ===
+          for (let i = all_fish.length - 1; i > 0; i--) {
+            const other_offset = all_fish[i][4]; // offset
+            const other_scale = all_fish[i][5];  // scale
+
+            const dx = current_offset[0] - other_offset[0];
+            const dy = current_offset[1] - other_offset[1];
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            const collisionDist = current_scale * 0.1 + other_scale * 0.1; // collision threshold
+
+            if (dist < collisionDist) {
+              current_scale += 0.01;
+              if (current_scale > 0.98){
+                current_scale = 0.98;
+              }
+              all_fish[0][5] = current_scale;
+              all_fish.splice(i, 1);
+              deadfish++;
+
+              if (deadfish === 10) {
+                mainFishColor = [1, 0.5, 0, 1]; // Orange
+                //console.log("orange reached");
+              } else if (deadfish === 20) {
+                mainFishColor  = [1, 1, 0, 1]; // Yellow
+                //console.log("yellow reached");
+              } else if (deadfish === 30) {
+                mainFishColor  = [0, 1, 0, 1]; // Green
+              } else if (deadfish === 40) {
+                mainFishColor  = [0, 0, 1, 1]; // Blue
+              } else if (deadfish === 60) {
+                mainFishColor  = [0.29, 0, 0.51, 1]; // Indigo
+              } else if (deadfish === 90) {
+                mainFishColor  = [0.56, 0, 1, 1]; // Violet
+              }
+            }
+          }
         }
 
 
@@ -280,8 +339,8 @@
         a
         ]);
         if (r == 0) {
-        // the large fish aka. first object should still be red!
-        current_color = [1,0,0,1];
+          // NOPE I AM CHANGING THE COLOR
+          current_color = mainFishColor;
         }
         gl.uniform4fv( u_color, current_color );
 
