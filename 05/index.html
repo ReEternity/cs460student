@@ -11,7 +11,7 @@
     </style>
     
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-
+ 
     <script type="importmap">
     {
       "imports": {
@@ -20,173 +20,126 @@
       }
     }
     </script>
-
+ 
     <script type="module">
-
+ 
       import * as THREE from 'three';
       import { OrbitControls } from 'three/addons/controls/OrbitControls.js';      
-      import { AnaglyphEffect } from 'three/addons/effects/AnaglyphEffect.js';
-      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 
-      var renderer, controls, scene, camera, effect, geometry, material;
-      var LASTOBJECT = null;
-      let mousePressed = false;
-      var FLICKERING = false;
-      var wireframeMode = false;
 
+      import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
+ 
+      var renderer, controls, scene, camera;
+ 
       window.onload = function() {
-
-        // Three.js code goes here
+ 
+ 
+        // create scene
         scene = new THREE.Scene();
-
+ 
         // setup the camera
         var fov = 75;
         var ratio = window.innerWidth / window.innerHeight;
-        var zNear = 0.1;
+        var zNear = 1;
         var zFar = 10000;
         camera = new THREE.PerspectiveCamera( fov, ratio, zNear, zFar );
-        camera.position.set(0, 10, 0);
-
-
-        // create renderer and setup the canvas
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        camera.position.set(0, 0, 100);
+ 
+        // create renderer and add canvas
+        renderer = new THREE.WebGLRenderer({antialias:true});
         renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( renderer.domElement );
-        effect = new AnaglyphEffect(renderer, window.innerWidth, window.innerHeight);
-
-
-        renderer.domElement.onmousedown = function( e ){
-          if (e.shiftKey){
-            controls.enabled = false;
-            //console.log('Yay! We shifted!');
-
-            mousePressed = true;
-
-            var pixel_coords = new THREE.Vector2( e.clientX, e.clientY );
-
-            console.log('Pixel coords', pixel_coords);
-
-            var vp_coords = new THREE.Vector2( 
-                        ( pixel_coords.x / window.innerWidth ) * 2 - 1,  //X
-                        -( pixel_coords.y / window.innerHeight ) * 2 + 1) // Y
-
-            console.log('Viewport coords', vp_coords);
-
-            var vp_coords_near = new THREE.Vector3( vp_coords.x, vp_coords.y, 0);
-
-
-            var raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(vp_coords_near, camera);
-            var intersects = raycaster.intersectObject(invisible_plane);
-
-            //console.log('Ray to Invisible Plane', intersects[0].point);
-
-            //where torusknot adding to scene used to be
-            loader = new GLTFLoader();
-            loader.load( 'poly.glb', function ( gltf ){
-                var poly = gltf.scenes[0].children[0];
-                poly.scale.x = 10;
-                poly.scale.y = 10;
-                poly.scale.z = 10;
-                scene.add( gltf.scene );
-            } );
-          }
-        };
-
-        renderer.domElement.onmouseup = function(e){
-          //mousePressed = false;
-          if (!controls.enabled){
-            controls.enabled = true;
-          }
-        }; 
-
-        // var toggleColor = false;//false = pink, true = green 7CFC00
-        // renderer.domElement.onmousemove = function(e){
-        //   if (!controls.enabled && mousePressed){
-        //     var DELTA = e.movementY*0.1;
-        //     var before = LASTOBJECT.scale.x;
-        //     var after = before + DELTA;
-
-        //     LASTOBJECT.scale.set(LASTOBJECT.scale.x+DELTA, LASTOBJECT.scale.y+DELTA, LASTOBJECT.scale.z+DELTA);
-
-        //     if ((before > 0 && after < 0) || (before < 0 && after > 0)){
-        //       toggleColor = !toggleColor;
-        //       LASTOBJECT.material.color.set(toggleColor ? 0x7CFC00 : 0xFF69B4);
-        //     } 
-        //   }
-        // };
-
-        // setup lights
+        
+        //.. setup lights
         var ambientLight = new THREE.AmbientLight();
         scene.add( ambientLight );
-
+ 
         var light = new THREE.DirectionalLight( 0xffffff, 5.0 );
         light.position.set( 10, 100, 10 );
         scene.add( light );
+ 
 
-        // //where configure TorusKnot used to be
-        // loader = new GLTFLoader();
-        // loader.load( 'poly.glb', function ( gltf ){
-        // scene.add( gltf.scene );
-        // } );
 
-        //
-        // The invisible plane
-        //
-        geometry = new THREE.PlaneGeometry( 10000, 10000 );
-        material = new THREE.MeshBasicMaterial( {
-          visible: false
-        });
+        // LOAD THE ARMADILLO
+        var loader = new PLYLoader();
+        loader.load('scene.ply', function(geometry) {
 
-        var invisible_plane = new THREE.Mesh( geometry, material );
+          geometry.computeVertexNormals();
 
-        scene.add( invisible_plane );
-        //
-        //
-        //
+          var material = new THREE.MeshStandardMaterial({ color: 'white',
+            metalness: 1.0, 
+            roughness: 0.1
 
-        window.onkeypress = function(e){
-          if (e.key == 'f'){
-            FLICKERING = !FLICKERING;
-          }else if (e.key == 'w'){
-            wireframeMode = !wireframeMode;
-            scene.traverse(function (object){
-            if (object.material && object.geometry.type == "TorusKnotGeometry"){
-              object.material.wireframe = wireframeMode;
-              object.material.needsUpdate = true;
-            }
-          });
-          }else if (e.key == 'c'){
-          }
-        }
 
-        // interaction
+           });
+
+          window.material = material;
+
+          var mesh = new THREE.Mesh( geometry, material );
+
+          window.mesh = mesh;
+
+          scene.add( mesh );
+
+        })
+
+ 
+        // setup interaction
         controls = new OrbitControls( camera, renderer.domElement );
-
+ 
         // call animation/rendering loop
         animate();
+
+
+        const gui = new Pane();
+        var armadilloGui = gui.addFolder({
+          title:'Armadillo', expanded: true});
+
+        var helper = {
+
+          'metalness': 1.0,
+          'roughness': 0.1,
+          'color': {'r':255, 'g':255, 'b':255}
+
+        }
+
+
+        armadilloGui.addBinding(helper, 'roughness', {min:0, max:1}).on('change', function(e) {
+          
+          // console.log(e);
+
+          window.material.roughness = e.value;
+
+        });
         
+        armadilloGui.addBinding(helper, 'metalness', {min:0, max:1}).on('change', function(e) {
+          
+          // console.log(e);
+
+          window.material.metalness = e.value;
+
+        });
+
+
+        armadilloGui.addBinding(helper, 'color', {view: 'color'}).on('change', function(e) {
+
+            window.material.color.r = e.value.r/255.;
+            window.material.color.g = e.value.g/255.;
+            window.material.color.b = e.value.b/255.;
+          
+        });
+
+
       };
-
+ 
       function animate() {
-
+ 
         requestAnimationFrame( animate );
-
-        // if (FLICKERING){
-        //   scene.traverse(function(object){
-        //     //console.log(object.geometry && object.geometry.type);
-        //     if (object.geometry && object.geometry.type == "TorusKnotGeometry"){
-        //       object.material.opacity = Math.random(); 
-        //       object.material.transparent = true;
-        //       object.material.needsUpdate = true;
-        //     }
-        //   });
-        // }
-
-        // and here..
+ 
         controls.update();
-        effect.render( scene, camera );
-        
+        renderer.render( scene, camera );
+ 
       };
     </script>
   </head>
