@@ -31,8 +31,19 @@
 
       import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
  
-      var renderer, controls, scene, camera;
- 
+      var renderer, controls, scene, camera, effect;
+
+      window['SCENE'] = {
+        'anaglyph': false,
+        'poly': null,
+        'rotate_poly': false,
+        'do_rotate_poly': function() {
+          window['SCENE']['rotate_poly'] = !window['SCENE']['rotate_poly'];
+        }
+
+      };
+
+
       window.onload = function() {
  
  
@@ -60,14 +71,13 @@
         light.position.set( 10, 100, 10 );
         scene.add( light );
  
-
-
-        // LOAD THE ARMADILLO
         var loader = new GLTFLoader();
         loader.load('Uofficial.glb', function(gltf) {
             scene.add(gltf.scene);
         
             var poly = gltf.scenes[0].children[0];
+            window.SCENE.poly = poly;
+
             poly.scale.x = 1000;
             poly.scale.y = 1000;
             poly.scale.z = 1000;
@@ -77,13 +87,15 @@
             poly.quaternion.y = 0;
             poly.quaternion.z = 0; //1 for mascot
             //poly.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI));
-            //console.log(poly);
-            window.SCENE.poly = poly;
-            //console.log(window.SCENE.poly);
+            var polyui = pane.addFolder({title: 'PolyCam Mesh'});
+            polyui.addBinding(window.SCENE.poly.material, 'wireframe');
+            polyui.addButton({title:'rotate!'}).on('click', () => {
+              window.SCENE.do_rotate_poly();
+            });
            });
            
            var loader2 = new GLTFLoader();
-            loader.load('UofficialUpdated2.glb', function(gltf) {
+            loader2.load('UofficialUpdated2.glb', function(gltf) {
             scene.add(gltf.scene);
         
             var poly = gltf.scenes[0].children[0];
@@ -94,7 +106,7 @@
 
             poly.quaternion.w = 0;
             poly.quaternion.x = 0;
-            poly.quaternion.y = 1;
+            poly.quaternion.y = 0;
             poly.quaternion.z = 0; //1 for mascot
             //poly.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI));
             //Z is +up/-down, Y is +forward/-backward, X is +left/-right
@@ -104,69 +116,42 @@
  
         // setup interaction
         controls = new OrbitControls( camera, renderer.domElement );
- 
+           
+        effect = new AnaglyphEffect(renderer, window.innerWidth, window.innerHeight);
+
         // call animation/rendering loop
         animate();
 
-
         var pane = new Pane();
         var sceneui = pane.addFolder({title: 'Scene'});
-
-        //
-        // SETTINGS and HELPER for TWEAKPANE
-        //
-        window['SCENE'] = {
-          'anaglyph': false,
-          'poly': null
-        };
+        
         sceneui.addBinding(light.position, 'x', {min:-100, max:100, label:'Light X'});
         sceneui.addBinding(window.SCENE, 'anaglyph');
 
-        var polyui = pane.addFolder({title: 'PolyCam Mesh'});
-        polyui.addBinding(window.SCENE.poly.material, 'wireframe');
-        // var helper = {
-
-        //   'metalness': 1.0,
-        //   'roughness': 0.1,
-        //   'color': {'r':255, 'g':255, 'b':255}
-
-        // }
-
-
-        // armadilloGui.addBinding(helper, 'roughness', {min:0, max:1}).on('change', function(e) {
-          
-        //   // console.log(e);
-
-        //   window.material.roughness = e.value;
-
-        // });
         
-        // armadilloGui.addBinding(helper, 'metalness', {min:0, max:1}).on('change', function(e) {
-          
-        //   // console.log(e);
-
-        //   window.material.metalness = e.value;
-
-        // });
-
-
-        // armadilloGui.addBinding(helper, 'color', {view: 'color'}).on('change', function(e) {
-
-        //     window.material.color.r = e.value.r/255.;
-        //     window.material.color.g = e.value.g/255.;
-        //     window.material.color.b = e.value.b/255.;
-          
-        // });
-
 
       };
  
       function animate() {
  
         requestAnimationFrame( animate );
- 
+
         controls.update();
-        renderer.render( scene, camera );
+
+        if (window.SCENE.poly) {
+          var qOriginal = new THREE.Quaternion(0,0,0,0);
+          var q180 = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0,1,0), Math.PI
+          );
+          var q = window.SCENE.rotate_poly ? q180 : qOriginal;
+          window.SCENE.poly.quaternion.slerp(q, 0.01);
+        }
+
+        if (window.SCENE.anaglyph) {
+          effect.render(scene, camera);
+        } else {
+          renderer.render(scene, camera);
+        }
  
       };
     </script>
