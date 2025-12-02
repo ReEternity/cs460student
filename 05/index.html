@@ -28,6 +28,7 @@
       //import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
       import { AnaglyphEffect } from 'three/addons/effects/AnaglyphEffect.js';
       import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
 
       import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
  
@@ -39,6 +40,22 @@
         'rotate_poly': false,
         'do_rotate_poly': function() {
           window['SCENE']['rotate_poly'] = !window['SCENE']['rotate_poly'];
+        },
+        'blender': null,
+        'blender_helper': null,
+        'blender_old_material': null,
+        'rotate_blender': false,
+        'do_rotate_blender': function() {
+          window['SCENE']['rotate_blender'] = !window['SCENE']['rotate_blender'];
+        },
+        'change_material': function() {
+          if (!window['SCENE']['blender_old_material']) {
+            window['SCENE']['blender_old_material'] = window['SCENE']['blender'].material.clone();
+            window['SCENE']['blender'].material = new THREE.MeshNormalMaterial();
+          } else {
+            window['SCENE']['blender'].material = window['SCENE']['blender_old_material'].clone();
+            window['SCENE']['blender_old_material'] = null;
+          }
         }
 
       };
@@ -94,24 +111,51 @@
             });
            });
            
-           var loader2 = new GLTFLoader();
-            loader2.load('UofficialUpdated2.glb', function(gltf) {
+            loader.load('UofficialUpdated2.glb', function(gltf) {
+            var blender = gltf.scenes[0].children[0];
+            
+            function findM(object){
+              if (object.isMesh){
+                return object;
+              }
+              for (let child of object.children){
+                const mesh = findM(child);
+                if (mesh) return mesh;
+              }
+              return null;
+            }
+            const meshFound = findM(blender);
+            if (meshFound){
+              blender = meshFound;
+            }
+
+            blender.scale.x = 1000;
+            blender.scale.y = 1000;
+            blender.scale.z = 1000;
+
+            blender.quaternion.w = 0;
+            blender.quaternion.x = 0;
+            blender.quaternion.y = 0;
+            blender.quaternion.z = 0;
+
+            blender.translateX(-100);
             scene.add(gltf.scene);
+            window.SCENE.blender = blender;
+            
+
+            var helper = new VertexNormalsHelper( blender, 0.1, 'blue' );
+            helper.visible = false;
+            scene.add(helper);
+            window.SCENE.blender_helper = helper;
+
         
-            var poly = gltf.scenes[0].children[0];
-            // ... scaling like in 4. above
-            poly.scale.x = 1000;
-            poly.scale.y = 1000;
-            poly.scale.z = 1000;
-
-            poly.quaternion.w = 0;
-            poly.quaternion.x = 0;
-            poly.quaternion.y = 0;
-            poly.quaternion.z = 0; //1 for mascot
-            //poly.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI));
-            //Z is +up/-down, Y is +forward/-backward, X is +left/-right
-            poly.translateX(-100);
-
+            var blenderui = pane.addFolder({title: 'blender Mesh'});
+            blenderui.addBinding(helper, 'visible', {label:'Show normals!'});
+            blenderui.addButton({ title:'Change Material!' })
+            .on('click', () => window.SCENE.change_material());
+            blenderui.addButton({title:'rotate!'}).on('click', () => {
+              window.SCENE.do_rotate_blender();
+            });
            });
  
         // setup interaction
@@ -124,9 +168,15 @@
 
         var pane = new Pane();
         var sceneui = pane.addFolder({title: 'Scene'});
-        
-        sceneui.addBinding(light.position, 'x', {min:-100, max:100, label:'Light X'});
         sceneui.addBinding(window.SCENE, 'anaglyph');
+        sceneui.addBinding(light.position, 'x', { min:-100, max:100, label:'Light X' });
+        sceneui.addBinding(light.position, 'y', { min:-100, max:100, label:'Light Y' });
+        sceneui.addBinding(light.position, 'z', { min:-100, max:100, label:'Light Z' });
+        sceneui.addBinding(light, 'intensity', { min:0, max:5, label:'Dir Intensity' });
+
+        const ambientParams = { color: '#ffffff' };
+        sceneui.addBinding(ambientParams, 'color', { label:'AmbientLight Color' })
+          .on('change', ev => ambientLight.color.set(ev.value));
 
         
 
@@ -145,6 +195,16 @@
           );
           var q = window.SCENE.rotate_poly ? q180 : qOriginal;
           window.SCENE.poly.quaternion.slerp(q, 0.1);
+        }
+
+        if (window.SCENE.blender) {
+          var qOriginal = new THREE.Quaternion(0,0,0,0);
+          var q180 = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0,1,0), Math.PI
+          );
+          var q = window.SCENE.rotate_blender ? q180 : qOriginal;
+          window.SCENE.blender.quaternion.slerp(q, 0.1);
+          window.SCENE.blender_helper.update()
         }
 
         if (window.SCENE.anaglyph) {
